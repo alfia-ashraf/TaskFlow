@@ -1,0 +1,326 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#f7f8fc">
+    <meta name="description" content="A calm, focused space to organize tasks, track deadlines, and make progress.">
+    <title>Tasket — your day, in focus</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@500;600;700&family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" defer></script>
+    <script src="supabase-config.js" defer></script>
+    <script src="app.js" defer></script>
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar" aria-label="Main navigation">
+        <a class="brand" href="#" aria-label="Tasket home">
+          <svg class="brand-mark" viewBox="0 0 32 32" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M8 13h16l-1.7 13H9.7L8 13Z" />
+            <path d="m11 13 5-7 5 7" />
+            <path d="m11.2 17 .9.9 1.6-1.7" />
+            <path d="M16 17h4" />
+            <path d="m11.2 21 .9.9 1.6-1.7" />
+            <path d="M16 21h4" />
+          </svg>
+          <span>tasket<span class="brand-period">.</span></span>
+        </a>
+
+        <div class="sidebar-label">WORKSPACE</div>
+        <nav class="primary-nav">
+          <button class="nav-link active" type="button" data-view="all"><span class="nav-icon">◫</span> Overview</button>
+          <button class="nav-link" type="button" data-view="pending"><span class="nav-icon">◷</span> To do <span class="nav-count" id="nav-pending-count">0</span></button>
+          <button class="nav-link" type="button" data-view="in-progress"><span class="nav-icon">↗</span> In progress</button>
+          <button class="nav-link" type="button" data-view="completed"><span class="nav-icon">✓</span> Completed</button>
+          <button class="nav-link" type="button" data-view="favorites"><span class="nav-icon">★</span> Favorites</button>
+          <button class="nav-link" type="button" data-view="calendar"><span class="nav-icon">▦</span> Calendar</button>
+        </nav>
+
+        <div class="sidebar-label category-label">CATEGORIES <button type="button" class="tiny-action" id="reset-category" aria-label="Show all categories">+</button></div>
+        <nav class="category-nav" aria-label="Filter by category">
+          <button class="category-link" type="button" data-category="Study"><span class="category-dot study"></span>Study</button>
+          <button class="category-link" type="button" data-category="Work"><span class="category-dot work"></span>Work</button>
+          <button class="category-link" type="button" data-category="Personal"><span class="category-dot personal"></span>Personal</button>
+          <button class="category-link" type="button" data-category="Other"><span class="category-dot other"></span>Other</button>
+        </nav>
+
+        <div class="sidebar-spacer"></div>
+        <div class="sidebar-note">
+          <div class="note-spark">✦</div>
+          <p class="note-title">Small steps add up.</p>
+          <p class="note-copy">Keep showing up. You're doing great.</p>
+        </div>
+        <button class="nav-link theme-toggle" id="theme-toggle" type="button"><span class="nav-icon" id="theme-icon">◐</span><span id="theme-label">Dark mode</span></button>
+        <div class="sidebar-footer"><span class="online-dot"></span><span id="storage-label">Your tasks are saved locally</span></div>
+      </aside>
+
+      <main class="main-content">
+        <svg class="doodle-background" viewBox="0 0 1200 1100" preserveAspectRatio="none" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+          <path class="doodle-secondary flight-trail" d="M385 147c72 24 142-36 221-10s127 24 191-24" />
+          <g class="doodle-primary doodle-checklist" transform="translate(345 82) rotate(-5) scale(.28)" stroke-width="5">
+            <path d="M4 0h102l14 14v132H4z" />
+            <path d="M106 1v17h14M20 37l6 6 10-12M47 40h53M20 68l6 6 10-12M47 71h53M20 99l6 6 10-12M47 102h35" />
+            <path class="doodle-secondary" d="M14 124c22 4 47 4 75 0" />
+          </g>
+          <g class="doodle-secondary" transform="translate(695 84) rotate(-32) scale(.3)" stroke-width="5">
+            <g class="doodle-pen-motion">
+              <path d="m0 74 11-27L61-3l18 18-50 50L2 77z" />
+              <path d="m11 47 18 18M61-3l18 18M0 74l13-9m-11 12 8-3-6-6z" />
+            </g>
+          </g>
+          <g class="doodle-primary" transform="translate(850 86) rotate(-12) scale(.38)" stroke-width="4">
+            <g class="doodle-plane-motion">
+              <path d="m0 13 58-13-20 57-10-23L0 13Z" />
+              <path d="m28 34 30-34M0 13l28 21" />
+            </g>
+          </g>
+          <path class="doodle-secondary doodle-spark" d="m785 89 2 6 6 2-6 2-2 6-2-6-6-2 6-2z" />
+        </svg>
+        <header class="topbar">
+          <div class="breadcrumb"><span>Workspace</span><span class="breadcrumb-slash">/</span><strong>Overview</strong></div>
+          <div class="topbar-actions">
+            <button class="icon-button topbar-theme-toggle" id="theme-toggle-topbar" type="button" aria-label="Toggle dark mode" title="Toggle dark mode"><span id="theme-topbar-icon">◐</span></button>
+            <button class="button button-secondary account-button" id="account-button" type="button">Sign in to sync</button>
+            <button class="icon-button" id="export-button" type="button" aria-label="Export tasks" title="Export tasks">⇧</button>
+            <label class="icon-button import-button" for="import-file" title="Import tasks" aria-label="Import tasks">⇩</label>
+            <input id="import-file" type="file" accept="application/json,.json" hidden>
+            <div class="avatar" aria-label="Your workspace">TK</div>
+          </div>
+        </header>
+
+        <div class="content-wrap">
+          <section class="welcome-row">
+            <div>
+              <p class="eyebrow" id="today-label">YOUR PERSONAL DASHBOARD</p>
+              <h1>Make today <span class="heading-accent">count.</span></h1>
+              <p class="welcome-copy">A little progress each day adds up to big results.</p>
+            </div>
+            <button class="button button-primary add-task-button" type="button" id="open-create"><span>＋</span> New task</button>
+          </section>
+
+          <div class="notice" id="storage-notice" role="status" hidden></div>
+
+          <section class="stats-grid" aria-label="Task statistics">
+            <article class="stat-card">
+              <div class="stat-top"><span class="stat-label">Total tasks</span><span class="stat-icon lavender">▤</span></div>
+              <div class="stat-value" id="stat-total">0</div>
+              <div class="stat-foot"><span class="stat-foot-mark">↗</span> In your workspace</div>
+            </article>
+            <article class="stat-card">
+              <div class="stat-top"><span class="stat-label">Pending</span><span class="stat-icon blue">◷</span></div>
+              <div class="stat-value" id="stat-pending">0</div>
+              <div class="stat-foot"><span id="stat-progress">0</span> in progress</div>
+            </article>
+            <article class="stat-card">
+              <div class="stat-top"><span class="stat-label">Completed</span><span class="stat-icon green">✓</span></div>
+              <div class="stat-value" id="stat-completed">0</div>
+              <div class="stat-foot">One step at a time</div>
+            </article>
+            <article class="stat-card progress-stat">
+              <div class="stat-top"><span class="stat-label">Overall progress</span><span class="stat-icon peach">↗</span></div>
+              <div class="progress-number"><span class="stat-value" id="stat-percent">0%</span><span class="progress-caption">of all tasks</span></div>
+              <div class="progress-track"><span id="progress-bar"></span></div>
+            </article>
+          </section>
+
+          <section class="dashboard-grid">
+            <div class="task-panel panel">
+              <div class="panel-heading task-panel-heading">
+                <div>
+                  <div class="section-kicker">YOUR WORKLOAD</div>
+                  <h2 id="task-heading">All tasks <span class="heading-count" id="task-count">0</span></h2>
+                </div>
+                <button class="text-button" id="clear-completed" type="button">Clear completed</button>
+              </div>
+              <section class="calendar-view" id="calendar-view" aria-label="Task calendar" hidden>
+                <div class="calendar-toolbar">
+                  <button class="icon-button" id="calendar-previous" type="button" aria-label="Previous month">‹</button>
+                  <h3 id="calendar-month"></h3>
+                  <button class="icon-button" id="calendar-next" type="button" aria-label="Next month">›</button>
+                  <button class="text-button calendar-today" id="calendar-today" type="button">Today</button>
+                </div>
+                <div class="calendar-grid calendar-weekdays" aria-hidden="true">
+                  <span>Sun</span><span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span>
+                </div>
+                <div class="calendar-grid" id="calendar-days"></div>
+                <p class="calendar-selection" id="calendar-selection"></p>
+              </section>
+              <div class="task-controls">
+                <label class="search-box">
+                  <span class="search-icon" aria-hidden="true">⌕</span>
+                  <input id="search-input" type="search" placeholder="Search tasks..." autocomplete="off" aria-label="Search tasks by title">
+                  <kbd>⌘ K</kbd>
+                </label>
+                <label class="select-wrap">
+                  <span class="visually-hidden">Filter by priority</span>
+                  <select id="priority-filter">
+                    <option value="all">All priorities</option>
+                    <option value="high">High priority</option>
+                    <option value="medium">Medium priority</option>
+                    <option value="low">Low priority</option>
+                  </select>
+                </label>
+                <label class="select-wrap sort-select">
+                  <span class="visually-hidden">Sort tasks</span>
+                  <select id="sort-select">
+                    <option value="due-asc">Due date: soonest</option>
+                    <option value="due-desc">Due date: latest</option>
+                    <option value="priority">Priority: high to low</option>
+                    <option value="created">Recently added</option>
+                  </select>
+                </label>
+              </div>
+              <div class="mobile-filters" aria-label="Task filters">
+                <label class="select-wrap">
+                  <span class="visually-hidden">Filter by status</span>
+                  <select id="mobile-status-filter">
+                    <option value="all">All statuses</option>
+                    <option value="pending">To do</option>
+                    <option value="in-progress">In progress</option>
+                    <option value="completed">Completed</option>
+                    <option value="favorites">Favorites</option>
+                    <option value="calendar">Calendar</option>
+                  </select>
+                </label>
+                <label class="select-wrap">
+                  <span class="visually-hidden">Filter by category</span>
+                  <select id="mobile-category-filter">
+                    <option value="all">All categories</option>
+                    <option value="Study">Study</option>
+                    <option value="Work">Work</option>
+                    <option value="Personal">Personal</option>
+                    <option value="Other">Other</option>
+                  </select>
+                </label>
+              </div>
+              <div class="active-filters" id="active-filters" hidden></div>
+              <div class="task-list" id="task-list" aria-live="polite"></div>
+              <div class="empty-state" id="empty-state" hidden>
+                <div class="empty-icon">✦</div>
+                <h3 id="empty-title">A clean slate.</h3>
+                <p id="empty-copy">Add a task and make your next move.</p>
+                <button class="button button-secondary" id="empty-add" type="button">Create a task</button>
+              </div>
+            </div>
+
+            <aside class="side-column">
+              <section class="quote-card panel" aria-labelledby="quote-heading">
+                <div class="quote-topline"><span class="quote-spark">✦</span><span>DAILY INSPIRATION</span><button id="refresh-quote" class="refresh-button" type="button" aria-label="Get another quote" title="Get another quote">↻</button></div>
+                <h2 id="quote-heading">A thought for today</h2>
+                <blockquote id="quote-text">Great things are done by a series of small things brought together.</blockquote>
+                <div class="quote-author" id="quote-author">— Vincent van Gogh</div>
+                <div class="quote-status" id="quote-status" aria-live="polite"></div>
+              </section>
+
+              <section class="sample-card panel" aria-labelledby="sample-heading">
+                <div class="sample-heading">
+                  <div class="sample-icon">↗</div>
+                  <div><div class="section-kicker">NEED A STARTING POINT?</div><h2 id="sample-heading">Try a sample task</h2></div>
+                </div>
+                <p class="sample-copy">Explore a few ideas from our sample task library. Add only what inspires you.</p>
+                <button class="button button-sample" id="load-samples" type="button">Browse sample tasks <span>→</span></button>
+                <div id="sample-status" class="sample-status" aria-live="polite"></div>
+                <div id="sample-list" class="sample-list"></div>
+              </section>
+
+              <section class="weather-card panel" aria-labelledby="weather-heading">
+                <div class="weather-topline"><span class="weather-icon" id="weather-icon">☼</span><span>LOCAL WEATHER</span></div>
+                <h2 id="weather-heading">A little forecast</h2>
+                <p class="weather-reading" id="weather-reading">Check the weather near you.</p>
+                <p class="weather-status" id="weather-status" aria-live="polite">Your location is only used when you ask for the forecast.</p>
+                <button class="button button-sample" id="load-weather" type="button">Use my location <span>→</span></button>
+              </section>
+
+              <section class="focus-card">
+                <div class="focus-content"><div class="focus-kicker">A GENTLE REMINDER</div><p>You don't have to do it all at once.</p><span>Focus on what matters next.</span></div>
+                <div class="focus-orbit orbit-one"></div><div class="focus-orbit orbit-two"></div><div class="focus-star">✳</div>
+              </section>
+            </aside>
+          </section>
+          <footer class="page-footer">Made for a more focused day <span>✦</span></footer>
+        </div>
+      </main>
+    </div>
+
+    <dialog class="task-dialog" id="task-dialog" aria-labelledby="dialog-title">
+      <form id="task-form">
+        <div class="dialog-heading">
+          <div><div class="section-kicker" id="dialog-kicker">BUILD YOUR MOMENTUM</div><h2 id="dialog-title">Create a task</h2></div>
+          <button class="dialog-close" id="close-dialog" type="button" aria-label="Close dialog">×</button>
+        </div>
+        <input id="task-id" type="hidden">
+        <label class="form-field">Task title <span class="required">*</span>
+          <input id="task-title" name="title" maxlength="100" placeholder="e.g. Review lecture notes" required>
+        </label>
+        <label class="form-field">Description <span class="optional">(optional)</span>
+          <textarea id="task-description" name="description" rows="3" maxlength="500" placeholder="Add a little more detail..."></textarea>
+        </label>
+        <div class="form-row">
+          <label class="form-field">Category
+            <select id="task-category" name="category">
+              <option>Study</option><option>Work</option><option>Personal</option><option>Other</option>
+            </select>
+          </label>
+          <label class="form-field">Priority
+            <select id="task-priority" name="priority">
+              <option value="medium">Medium</option><option value="high">High</option><option value="low">Low</option>
+            </select>
+          </label>
+        </div>
+        <div class="form-row">
+          <label class="form-field">Due date
+            <input id="task-due-date" name="dueDate" type="date">
+          </label>
+          <label class="form-field">Status
+            <select id="task-status" name="status">
+              <option value="pending">To do</option><option value="in-progress">In progress</option><option value="completed">Completed</option>
+            </select>
+          </label>
+        </div>
+        <section class="subtask-editor" aria-labelledby="subtask-editor-title">
+          <div class="subtask-editor-heading"><span id="subtask-editor-title">Subtasks</span><span class="optional">(optional checklist)</span></div>
+          <div class="subtask-entry">
+            <input id="subtask-input" maxlength="120" placeholder="Add a smaller step...">
+            <button class="button button-secondary" id="add-subtask" type="button">Add</button>
+          </div>
+          <ul class="subtask-draft-list" id="subtask-draft-list"></ul>
+        </section>
+        <div class="dialog-actions">
+          <button class="button button-secondary" id="cancel-dialog" type="button">Cancel</button>
+          <button class="button button-primary" id="save-task" type="submit">Create task</button>
+        </div>
+      </form>
+    </dialog>
+    <dialog class="account-dialog" id="account-dialog" aria-labelledby="account-dialog-title">
+      <div class="dialog-heading">
+        <div><div class="section-kicker">YOUR TASKS, ON YOUR DEVICES</div><h2 id="account-dialog-title">Cloud sync</h2></div>
+        <button class="dialog-close" id="close-account-dialog" type="button" aria-label="Close dialog">×</button>
+      </div>
+      <p class="account-copy">Sign in to keep your tasks synced across your devices. You can still use Tasket locally without an account.</p>
+      <div class="account-status" id="account-status" role="status"></div>
+      <div id="signed-out-panel">
+        <form id="auth-form">
+          <label class="form-field">Email
+            <input id="auth-email" type="email" autocomplete="email" placeholder="you@example.com" required>
+          </label>
+          <label class="form-field">Password
+            <input id="auth-password" type="password" autocomplete="current-password" minlength="8" placeholder="At least 8 characters" required>
+          </label>
+          <button class="button button-primary auth-submit" id="auth-submit" type="submit">Sign in</button>
+        </form>
+        <button class="text-button auth-mode-toggle" id="auth-mode-toggle" type="button">New here? Create an account</button>
+      </div>
+      <div id="signed-in-panel" hidden>
+        <div class="signed-in-email" id="signed-in-email"></div>
+        <div class="account-actions">
+          <button class="button button-secondary" id="sync-now" type="button">Sync now</button>
+          <button class="button button-secondary" id="sign-out" type="button">Sign out</button>
+        </div>
+      </div>
+    </dialog>
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  </body>
+</html>
