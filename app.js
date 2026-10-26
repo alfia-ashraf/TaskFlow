@@ -27,6 +27,9 @@ let calendarMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1)
 let calendarSelectedDate = localDateKey(new Date());
 let draftSubtasks = [];
 let authMode = "sign-in";
+let authEmailCooldownUntil = 0;
+let authEmailCooldownTimer = null;
+let authRequestPending = false;
 let toastTimer;
 
 function showToast(message) {
@@ -60,6 +63,38 @@ function getAuthRedirectError() {
   const description = params.get("error_description");
   if (!description) return null;
   return description;
+}
+
+function updateAuthEmailCooldown() {
+  window.clearTimeout(authEmailCooldownTimer);
+  const remainingMs = Math.max(0, authEmailCooldownUntil - Date.now());
+  const remainingSeconds = Math.ceil(remainingMs / 1000);
+  const resendButton = $("#resend-confirmation");
+  resendButton.textContent = remainingSeconds ? `Resend in ${remainingSeconds}s` : "Resend confirmation email";
+  resendButton.disabled = authRequestPending || remainingSeconds > 0;
+  $("#auth-submit").disabled = authRequestPending || (authMode === "sign-up" && remainingSeconds > 0);
+  if (remainingMs) {
+    authEmailCooldownTimer = window.setTimeout(updateAuthEmailCooldown, Math.min(1000, remainingMs));
+  }
+}
+
+function startAuthEmailCooldown() {
+  authEmailCooldownUntil = Date.now() + 60_000;
+  updateAuthEmailCooldown();
+}
+
+function isEmailRateLimitError(error) {
+  return error.status === 429 || /email rate limit|too many requests/i.test(error.message || "");
+}
+
+function showEmailRateLimitMessage(error) {
+  console.error("Supabase rate-limited email delivery:", error);
+  $("#resend-confirmation").hidden = false;
+  startAuthEmailCooldown();
+  updateCloudStatus(
+    "Supabase temporarily limited email delivery. Wait before retrying. Its built-in email service allows only 2 emails per hour; configure custom SMTP in Supabase Authentication → SMTP Settings for normal user email.",
+    "error"
+  );
 }
 
 function isValidTask(value) {
@@ -931,6 +966,7 @@ async function initialize() {
     $("#auth-password").autocomplete = authMode === "sign-in" ? "current-password" : "new-password";
     $("#auth-mode-toggle").textContent = authMode === "sign-in" ? "New here? Create an account" : "Already have an account? Sign in";
     $("#resend-confirmation").hidden = true;
+    updateAuthEmailCooldown();
     updateAccountControls();
   });
   $("#sync-now").addEventListener("click", async () => {
@@ -984,7 +1020,10 @@ async function handleAuthSubmit(event) {
     return;
   }
   const button = $("#auth-submit");
+  const isSignUp = authMode === "sign-up";
   button.disabled = true;
+  authRequestPending = true;
+  updateAuthEmailCooldown();
   updateCloudStatus(authMode === "sign-in" ? "Signing in..." : "Creating your account...", "neutral");
   try {
     const credentials = {
@@ -1001,6 +1040,7 @@ async function handleAuthSubmit(event) {
     if (!result.data.session) {
       updateCloudStatus("Use the link in your email to confirm your account, then return here to sign in.", "success");
       $("#resend-confirmation").hidden = false;
+      startAuthEmailCooldown();
       return;
     }
     await activateCloudSession(result.data.session, true);
@@ -1009,7 +1049,9 @@ async function handleAuthSubmit(event) {
   } catch (error) {
     console.error("Supabase authentication failed:", error);
     const message = error.message || "Authentication failed. Please try again.";
-    if (/email not confirmed|email_not_confirmed/i.test(message)) {
+    if (isSignUp && isEmailRateLimitError(error)) {
+      showEmailRateLimitMessage(error);
+    } else if (/email not confirmed|email_not_confirmed/i.test(message)) {
       $("#resend-confirmation").hidden = false;
       updateCloudStatus("Confirm your email before signing in. You can send a fresh confirmation link below.", "error");
     } else if (/invalid login credentials/i.test(message)) {
@@ -1020,7 +1062,8 @@ async function handleAuthSubmit(event) {
       updateCloudStatus(message, "error");
     }
   } finally {
-    button.disabled = false;
+    authRequestPending = false;
+    updateAuthEmailCooldown();
   }
 }
 
@@ -1037,6 +1080,8 @@ async function handleResendConfirmation() {
   }
   const button = $("#resend-confirmation");
   button.disabled = true;
+  authRequestPending = true;
+  updateAuthEmailCooldown();
   updateCloudStatus("Sending a new confirmation email...", "neutral");
   try {
     const { error } = await supabaseClient.auth.resend({
@@ -1046,14 +1091,20 @@ async function handleResendConfirmation() {
     });
     if (error) throw error;
     updateCloudStatus("If this address has an unconfirmed account, a new confirmation email is on its way.", "success");
+    startAuthEmailCooldown();
   } catch (error) {
-    console.error("Unable to resend the confirmation email:", error);
-    const redirectHint = /redirect|url|allow/i.test(error.message || "")
-      ? " Add the deployed Tasket URL to Supabase Authentication → URL Configuration → Redirect URLs."
-      : "";
-    updateCloudStatus(`${error.message || "Could not resend the confirmation email."}${redirectHint}`, "error");
+    if (isEmailRateLimitError(error)) {
+      showEmailRateLimitMessage(error);
+    } else {
+      console.error("Unable to resend the confirmation email:", error);
+      const redirectHint = /redirect|url|allow/i.test(error.message || "")
+        ? " Add the deployed Tasket URL to Supabase Authentication → URL Configuration → Redirect URLs."
+        : "";
+      updateCloudStatus(`${error.message || "Could not resend the confirmation email."}${redirectHint}`, "error");
+    }
   } finally {
-    button.disabled = false;
+    authRequestPending = false;
+    updateAuthEmailCooldown();
   }
 }
 
