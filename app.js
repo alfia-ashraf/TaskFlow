@@ -45,6 +45,23 @@ function setMobileNavigationOpen(isOpen) {
   document.body.classList.toggle("mobile-navigation-open", isOpen);
 }
 
+function getAuthRedirectUrl() {
+  const url = new URL(window.location.href);
+  url.search = "";
+  url.hash = "";
+  if (url.pathname.endsWith("/index.html")) url.pathname = url.pathname.slice(0, -"index.html".length);
+  else if (!url.pathname.endsWith("/")) url.pathname += "/";
+  return url.href;
+}
+
+function getAuthRedirectError() {
+  const params = new URLSearchParams(window.location.search);
+  new URLSearchParams(window.location.hash.slice(1)).forEach((value, key) => params.set(key, value));
+  const description = params.get("error_description");
+  if (!description) return null;
+  return description;
+}
+
 function isValidTask(value) {
   return value && typeof value === "object" &&
     typeof value.id === "string" && value.id.trim() && typeof value.title === "string" && value.title.trim() &&
@@ -564,6 +581,13 @@ function handleTaskAction(event) {
 function setView(view) {
   currentView = view;
   document.querySelectorAll(".nav-link[data-view]").forEach(link => link.classList.toggle("active", link.dataset.view === view));
+  document.querySelectorAll(".mobile-nav-link[data-mobile-view]").forEach(link => {
+    const active = link.dataset.mobileView === view || (view === "in-progress" && link.dataset.mobileView === "pending") ||
+      (view === "completed" && link.dataset.mobileView === "pending");
+    link.classList.toggle("active", active);
+    if (active) link.setAttribute("aria-current", "page");
+    else link.removeAttribute("aria-current");
+  });
   $("#mobile-status-filter").value = view;
   renderTasks();
 }
@@ -806,6 +830,23 @@ async function initialize() {
     setMobileNavigationOpen(!$("#sidebar").classList.contains("is-open"));
   });
   $("#sidebar-backdrop").addEventListener("click", () => setMobileNavigationOpen(false));
+  document.querySelectorAll(".mobile-nav-link[data-mobile-view]").forEach(link => {
+    link.addEventListener("click", () => {
+      setView(link.dataset.mobileView);
+      setMobileNavigationOpen(false);
+      document.body.classList.remove("mobile-search-open");
+      $("#mobile-search-toggle").setAttribute("aria-expanded", "false");
+    });
+  });
+  $("#mobile-add-task").addEventListener("click", openCreateDialog);
+  $("#mobile-search-toggle").addEventListener("click", () => {
+    const isOpen = document.body.classList.toggle("mobile-search-open");
+    $("#mobile-search-toggle").setAttribute("aria-expanded", String(isOpen));
+    if (isOpen) {
+      $("#search-input").focus();
+      $("#search-input").scrollIntoView({ block: "center", behavior: "smooth" });
+    } else $("#search-input").blur();
+  });
   $("#mobile-status-filter").addEventListener("change", event => setView(event.target.value));
   $("#mobile-category-filter").addEventListener("change", event => {
     selectedCategory = event.target.value;
@@ -865,6 +906,8 @@ async function initialize() {
     if (event.key === "Escape") {
       if (dialog.open) dialog.close();
       setMobileNavigationOpen(false);
+      document.body.classList.remove("mobile-search-open");
+      $("#mobile-search-toggle").setAttribute("aria-expanded", "false");
     }
   });
   $("#account-button").addEventListener("click", () => {
@@ -873,6 +916,7 @@ async function initialize() {
   });
   $("#close-account-dialog").addEventListener("click", () => $("#account-dialog").close());
   $("#auth-form").addEventListener("submit", handleAuthSubmit);
+  $("#resend-confirmation").addEventListener("click", handleResendConfirmation);
   $("#password-visibility-toggle").addEventListener("click", event => {
     const password = $("#auth-password");
     const isVisible = password.type === "text";
@@ -886,6 +930,7 @@ async function initialize() {
     $("#auth-submit").textContent = authMode === "sign-in" ? "Sign in" : "Create account";
     $("#auth-password").autocomplete = authMode === "sign-in" ? "current-password" : "new-password";
     $("#auth-mode-toggle").textContent = authMode === "sign-in" ? "New here? Create an account" : "Already have an account? Sign in";
+    $("#resend-confirmation").hidden = true;
     updateAccountControls();
   });
   $("#sync-now").addEventListener("click", async () => {
@@ -903,7 +948,9 @@ async function initialize() {
   if (cloudConfig.url && cloudConfig.publishableKey) {
     try {
       if (!window.supabase?.createClient) throw new Error("Supabase client library did not load.");
-      supabaseClient = window.supabase.createClient(cloudConfig.url, cloudConfig.publishableKey);
+      supabaseClient = window.supabase.createClient(cloudConfig.url, cloudConfig.publishableKey, {
+        auth: { detectSessionInUrl: true }
+      });
     } catch (error) {
       console.error("Unable to initialize Supabase:", error);
       updateCloudStatus("Supabase setup is invalid or its client library could not load.", "error");
@@ -920,6 +967,12 @@ async function initialize() {
       console.error("Unable to restore Supabase session:", error);
       updateCloudStatus("Could not restore your cloud session. Sign in again.", "error");
     }
+  }
+  const redirectError = getAuthRedirectError();
+  if (redirectError) {
+    updateCloudStatus(`The email link could not be completed: ${redirectError}`, "error");
+    $("#resend-confirmation").hidden = false;
+    $("#account-dialog").showModal();
   }
   loadQuote();
 }
@@ -942,11 +995,12 @@ async function handleAuthSubmit(event) {
       ? await supabaseClient.auth.signInWithPassword(credentials)
       : await supabaseClient.auth.signUp({
         ...credentials,
-        options: { emailRedirectTo: new URL("./", window.location.href).href }
+        options: { emailRedirectTo: getAuthRedirectUrl() }
       });
     if (result.error) throw result.error;
     if (!result.data.session) {
       updateCloudStatus("Use the link in your email to confirm your account, then return here to sign in.", "success");
+      $("#resend-confirmation").hidden = false;
       return;
     }
     await activateCloudSession(result.data.session, true);
@@ -954,7 +1008,50 @@ async function handleAuthSubmit(event) {
     showToast("Your tasks are now syncing with Supabase.");
   } catch (error) {
     console.error("Supabase authentication failed:", error);
-    updateCloudStatus(error.message || "Authentication failed. Please try again.", "error");
+    const message = error.message || "Authentication failed. Please try again.";
+    if (/email not confirmed|email_not_confirmed/i.test(message)) {
+      $("#resend-confirmation").hidden = false;
+      updateCloudStatus("Confirm your email before signing in. You can send a fresh confirmation link below.", "error");
+    } else if (/invalid login credentials/i.test(message)) {
+      updateCloudStatus("That email and password do not match. If you just registered, confirm your email first; resend the link if it expired.", "error");
+    } else if (/redirect|url|allow/i.test(message)) {
+      updateCloudStatus(`${message} Add https://alfia-ashraf.github.io/TaskFlow/ to Supabase Authentication → URL Configuration → Redirect URLs.`, "error");
+    } else {
+      updateCloudStatus(message, "error");
+    }
+  } finally {
+    button.disabled = false;
+  }
+}
+
+async function handleResendConfirmation() {
+  if (!supabaseClient) {
+    updateAccountControls();
+    return;
+  }
+  const emailInput = $("#auth-email");
+  emailInput.setCustomValidity("");
+  if (!emailInput.value.trim() || !emailInput.validity.valid) {
+    emailInput.reportValidity();
+    return;
+  }
+  const button = $("#resend-confirmation");
+  button.disabled = true;
+  updateCloudStatus("Sending a new confirmation email...", "neutral");
+  try {
+    const { error } = await supabaseClient.auth.resend({
+      type: "signup",
+      email: emailInput.value.trim(),
+      options: { emailRedirectTo: getAuthRedirectUrl() }
+    });
+    if (error) throw error;
+    updateCloudStatus("If this address has an unconfirmed account, a new confirmation email is on its way.", "success");
+  } catch (error) {
+    console.error("Unable to resend the confirmation email:", error);
+    const redirectHint = /redirect|url|allow/i.test(error.message || "")
+      ? " Add the deployed Tasket URL to Supabase Authentication → URL Configuration → Redirect URLs."
+      : "";
+    updateCloudStatus(`${error.message || "Could not resend the confirmation email."}${redirectHint}`, "error");
   } finally {
     button.disabled = false;
   }

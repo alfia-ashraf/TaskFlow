@@ -101,6 +101,7 @@
             <div class="breadcrumb"><span>Workspace</span><span class="breadcrumb-slash">/</span><strong>Overview</strong></div>
           </div>
           <div class="topbar-actions">
+            <button class="icon-button mobile-search-toggle" id="mobile-search-toggle" type="button" aria-label="Search tasks" aria-expanded="false" title="Search tasks">⌕</button>
             <button class="icon-button topbar-theme-toggle" id="theme-toggle-topbar" type="button" aria-label="Toggle dark mode" title="Toggle dark mode"><span id="theme-topbar-icon">◐</span></button>
             <button class="button button-secondary account-button" id="account-button" type="button">Sign in to sync</button>
             <button class="icon-button" id="export-button" type="button" aria-label="Export tasks" title="Export tasks">⇧</button>
@@ -262,6 +263,21 @@
           <footer class="page-footer">Made for a more focused day <span>✦</span></footer>
         </div>
       </main>
+      <nav class="mobile-bottom-nav" aria-label="Main navigation">
+        <button class="mobile-nav-link active" type="button" data-mobile-view="all" aria-current="page">
+          <span class="mobile-nav-icon" aria-hidden="true">▦</span><span>Overview</span>
+        </button>
+        <button class="mobile-nav-link" type="button" data-mobile-view="pending">
+          <span class="mobile-nav-icon" aria-hidden="true">☷</span><span>Tasks</span>
+        </button>
+        <button class="mobile-nav-link" type="button" data-mobile-view="calendar">
+          <span class="mobile-nav-icon" aria-hidden="true">▣</span><span>Calendar</span>
+        </button>
+        <button class="mobile-nav-link" type="button" data-mobile-view="favorites">
+          <span class="mobile-nav-icon" aria-hidden="true">☆</span><span>Favorites</span>
+        </button>
+      </nav>
+      <button class="mobile-add-task" id="mobile-add-task" type="button" aria-label="Add a task">＋</button>
     </div>
 
     <dialog class="task-dialog" id="task-dialog" aria-labelledby="dialog-title">
@@ -334,6 +350,7 @@
           <button class="button button-primary auth-submit" id="auth-submit" type="submit">Sign in</button>
         </form>
         <button class="text-button auth-mode-toggle" id="auth-mode-toggle" type="button">New here? Create an account</button>
+        <button class="text-button resend-confirmation" id="resend-confirmation" type="button" hidden>Resend confirmation email</button>
       </div>
       <div id="signed-in-panel" hidden>
         <div class="signed-in-email" id="signed-in-email"></div>
