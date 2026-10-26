@@ -46,7 +46,7 @@ Supabase is the online place where Tasket can store tasks so the same account ca
    };
    ```
 
-5. In Supabase **Authentication** settings, enable the **Email** provider. Set the allowed site URL to your app address. For local testing, use the exact address shown by VS Code Live Server (often `http://127.0.0.1:5500`); add the deployed website address after deployment. If email confirmation is enabled, confirm the message sent to your inbox.
+5. In Supabase **Authentication → URL Configuration**, enable the **Email** provider. Set **Site URL** to your deployed app address. Add both the deployed app address and your local Live Server address (often `http://127.0.0.1:5500/`) to **Redirect URLs**. For GitHub Pages, include the repository path, for example `https://<username>.github.io/<repository>/`. Email confirmation links return to the address where the account was created, so that address must be allowed here.
 6. Open Tasket using Live Server and choose **Sign in to sync → Create account**. Create an email/password account, then sign in. New tasks and edits sync to Supabase; deletions sync as markers so an older cached copy on another device does not restore a deleted task. On another device, open the same deployed site and sign in to the same Tasket account. Use **Sync now** to fetch changes made while an already-open page was idle.
 
 The publishable key is intended for browser use; it identifies this app but does not identify a signed-in user. Supabase Auth identifies each user, and row-level security decides which task rows that user can access. Never put a Supabase secret or legacy `service_role` key in this project. Keep row-level security enabled. The app retains local browser storage as a cache and continues to work if Supabase is not configured or temporarily unavailable.
@@ -69,7 +69,7 @@ If you already ran an earlier version of the schema before adding favorites and 
 
 ## Deploy
 
-The project is static and can be published using GitHub Pages, Netlify, or Vercel. For GitHub Pages, push the files to a repository, then enable Pages in the repository settings and select the branch/folder containing `index.html`. Add the deployed URL to Supabase Auth's allowed site/redirect URLs.
+The project is static and can be published using GitHub Pages, Netlify, or Vercel. For GitHub Pages, push the files to a repository, then enable Pages in the repository settings and select the branch/folder containing `index.html`. After deployment, add the full deployed URL (including the repository path) to Supabase **Authentication → URL Configuration → Redirect URLs**, and set it as the **Site URL**.
 
 ## Screenshots
 

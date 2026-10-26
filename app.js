@@ -37,6 +37,14 @@ function showToast(message) {
   toastTimer = window.setTimeout(() => toast.classList.remove("show"), 3000);
 }
 
+function setMobileNavigationOpen(isOpen) {
+  $("#sidebar").classList.toggle("is-open", isOpen);
+  $("#sidebar-backdrop").hidden = !isOpen;
+  $("#mobile-menu-toggle").setAttribute("aria-expanded", String(isOpen));
+  $("#mobile-menu-toggle").setAttribute("aria-label", isOpen ? "Close navigation" : "Open navigation");
+  document.body.classList.toggle("mobile-navigation-open", isOpen);
+}
+
 function isValidTask(value) {
   return value && typeof value === "object" &&
     typeof value.id === "string" && value.id.trim() && typeof value.title === "string" && value.title.trim() &&
@@ -776,19 +784,28 @@ async function initialize() {
   });
   taskList.addEventListener("click", handleTaskAction);
   taskList.addEventListener("change", handleTaskAction);
-  document.querySelectorAll(".nav-link[data-view]").forEach(link => link.addEventListener("click", () => setView(link.dataset.view)));
+  document.querySelectorAll(".nav-link[data-view]").forEach(link => link.addEventListener("click", () => {
+    setView(link.dataset.view);
+    setMobileNavigationOpen(false);
+  }));
   document.querySelectorAll(".category-link").forEach(link => link.addEventListener("click", () => {
     selectedCategory = selectedCategory === link.dataset.category ? "all" : link.dataset.category;
     $("#mobile-category-filter").value = selectedCategory;
     document.querySelectorAll(".category-link").forEach(item => item.classList.toggle("active", selectedCategory === item.dataset.category));
     renderTasks();
+    setMobileNavigationOpen(false);
   }));
   $("#reset-category").addEventListener("click", () => {
     selectedCategory = "all";
     $("#mobile-category-filter").value = "all";
     document.querySelectorAll(".category-link").forEach(item => item.classList.remove("active"));
     renderTasks();
+    setMobileNavigationOpen(false);
   });
+  $("#mobile-menu-toggle").addEventListener("click", () => {
+    setMobileNavigationOpen(!$("#sidebar").classList.contains("is-open"));
+  });
+  $("#sidebar-backdrop").addEventListener("click", () => setMobileNavigationOpen(false));
   $("#mobile-status-filter").addEventListener("change", event => setView(event.target.value));
   $("#mobile-category-filter").addEventListener("change", event => {
     selectedCategory = event.target.value;
@@ -845,7 +862,10 @@ async function initialize() {
       event.preventDefault();
       $("#search-input").focus();
     }
-    if (event.key === "Escape" && dialog.open) dialog.close();
+    if (event.key === "Escape") {
+      if (dialog.open) dialog.close();
+      setMobileNavigationOpen(false);
+    }
   });
   $("#account-button").addEventListener("click", () => {
     updateAccountControls();
@@ -853,6 +873,14 @@ async function initialize() {
   });
   $("#close-account-dialog").addEventListener("click", () => $("#account-dialog").close());
   $("#auth-form").addEventListener("submit", handleAuthSubmit);
+  $("#password-visibility-toggle").addEventListener("click", event => {
+    const password = $("#auth-password");
+    const isVisible = password.type === "text";
+    password.type = isVisible ? "password" : "text";
+    event.currentTarget.textContent = isVisible ? "Show" : "Hide";
+    event.currentTarget.setAttribute("aria-label", isVisible ? "Show password" : "Hide password");
+    event.currentTarget.setAttribute("aria-pressed", String(!isVisible));
+  });
   $("#auth-mode-toggle").addEventListener("click", () => {
     authMode = authMode === "sign-in" ? "sign-up" : "sign-in";
     $("#auth-submit").textContent = authMode === "sign-in" ? "Sign in" : "Create account";
@@ -912,10 +940,13 @@ async function handleAuthSubmit(event) {
     };
     const result = authMode === "sign-in"
       ? await supabaseClient.auth.signInWithPassword(credentials)
-      : await supabaseClient.auth.signUp(credentials);
+      : await supabaseClient.auth.signUp({
+        ...credentials,
+        options: { emailRedirectTo: new URL("./", window.location.href).href }
+      });
     if (result.error) throw result.error;
     if (!result.data.session) {
-      updateCloudStatus("Check your email to confirm your account, then come back and sign in.", "success");
+      updateCloudStatus("Use the link in your email to confirm your account, then return here to sign in.", "success");
       return;
     }
     await activateCloudSession(result.data.session, true);
